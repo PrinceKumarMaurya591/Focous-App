@@ -2,10 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BlockedApp,
+  ClockSubTab,
   DailyStat,
   FrictionLevel,
   InterceptedNotification,
   SoundscapeId,
+  StopwatchLap,
+  StudyAlarm,
   StudyTask,
   TabType,
   TimerMode,
@@ -58,6 +61,28 @@ interface FocusContextType {
   studyTasks: StudyTask[];
   addStudyTask: (title: string, subject: string, durationMinutes: number) => void;
   toggleStudyTask: (id: string) => void;
+
+  // Clock SubTab (Timer / Stopwatch / Alarm)
+  clockTab: ClockSubTab;
+  setClockTab: (tab: ClockSubTab) => void;
+
+  // Stopwatch
+  stopwatchMs: number;
+  isStopwatchRunning: boolean;
+  stopwatchLaps: StopwatchLap[];
+  startStopwatch: () => void;
+  pauseStopwatch: () => void;
+  resetStopwatch: () => void;
+  lapStopwatch: () => void;
+
+  // Study Alarms
+  alarms: StudyAlarm[];
+  toggleAlarm: (id: string) => void;
+  addAlarm: (label: string, time: string, days: string[], sound: string) => void;
+  deleteAlarm: (id: string) => void;
+  testAlarm: (alarm: StudyAlarm) => void;
+  activeRingingAlarm: StudyAlarm | null;
+  dismissRingingAlarm: () => void;
 
   // Emergency Unlock
   isUnlockModalOpen: boolean;
@@ -243,6 +268,12 @@ const DEFAULT_WEEKLY_STATS: DailyStat[] = [
   { date: '2026-10-30', dayLabel: 'Today', focusMinutes: 195, timeSavedMinutes: 175, reelsIntercepted: 38, dopamineScore: 98 },
 ];
 
+const DEFAULT_ALARMS: StudyAlarm[] = [
+  { id: 'alarm-1', label: 'Morning Deep Study Sprint', time: '06:00 AM', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], sound: 'Zen Bell', isActive: true },
+  { id: 'alarm-2', label: 'Afternoon Practice Set', time: '02:30 PM', days: ['Mon', 'Wed', 'Fri'], sound: 'Alpha Chime', isActive: true },
+  { id: 'alarm-3', label: 'Night Bedtime Reels Lockdown', time: '10:00 PM', days: ['Daily'], sound: 'Tibetan Bowl', isActive: true },
+];
+
 const FocusContext = createContext<FocusContextType | undefined>(undefined);
 
 export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -250,6 +281,19 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isShieldActive, setIsShieldActive] = useState<boolean>(true);
   const [isNotificationShieldActive, setIsNotificationShieldActive] = useState<boolean>(true);
   const [blockedApps, setBlockedApps] = useState<BlockedApp[]>(DEFAULT_BLOCKED_APPS);
+
+  // Clock SubTab: timer, stopwatch, alarm
+  const [clockTab, setClockTab] = useState<ClockSubTab>('timer');
+
+  // Stopwatch state
+  const [stopwatchMs, setStopwatchMs] = useState<number>(0);
+  const [isStopwatchRunning, setIsStopwatchRunning] = useState<boolean>(false);
+  const [stopwatchLaps, setStopwatchLaps] = useState<StopwatchLap[]>([]);
+  const stopwatchRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Alarms state
+  const [alarms, setAlarms] = useState<StudyAlarm[]>(DEFAULT_ALARMS);
+  const [activeRingingAlarm, setActiveRingingAlarm] = useState<StudyAlarm | null>(null);
 
   // Friction modal
   const [activeFrictionApp, setActiveFrictionApp] = useState<BlockedApp | null>(null);
@@ -325,6 +369,20 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isTimerRunning, totalDurationSeconds]);
+
+  // Stopwatch Interval
+  useEffect(() => {
+    if (isStopwatchRunning) {
+      stopwatchRef.current = setInterval(() => {
+        setStopwatchMs((prev) => prev + 10);
+      }, 10);
+    } else {
+      if (stopwatchRef.current) clearInterval(stopwatchRef.current);
+    }
+    return () => {
+      if (stopwatchRef.current) clearInterval(stopwatchRef.current);
+    };
+  }, [isStopwatchRunning]);
 
   // Master shield toggle
   const toggleShield = useCallback(() => {
@@ -545,6 +603,75 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     triggerHaptic.light();
   }, []);
 
+  // Stopwatch Handlers
+  const startStopwatch = useCallback(() => {
+    triggerHaptic.medium();
+    setIsStopwatchRunning(true);
+  }, []);
+
+  const pauseStopwatch = useCallback(() => {
+    triggerHaptic.light();
+    setIsStopwatchRunning(false);
+  }, []);
+
+  const resetStopwatch = useCallback(() => {
+    triggerHaptic.light();
+    setIsStopwatchRunning(false);
+    setStopwatchMs(0);
+    setStopwatchLaps([]);
+  }, []);
+
+  const lapStopwatch = useCallback(() => {
+    triggerHaptic.light();
+    setStopwatchLaps((prev) => {
+      const prevTotal = prev.length > 0 ? prev[0].totalTimeMs : 0;
+      const lapTime = stopwatchMs - prevTotal;
+      const newLap: StopwatchLap = {
+        lapNumber: prev.length + 1,
+        lapTimeMs: lapTime,
+        totalTimeMs: stopwatchMs,
+      };
+      return [newLap, ...prev];
+    });
+  }, [stopwatchMs]);
+
+  // Alarm Handlers
+  const toggleAlarm = useCallback((id: string) => {
+    triggerHaptic.light();
+    setAlarms((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a))
+    );
+  }, []);
+
+  const addAlarm = useCallback((label: string, time: string, days: string[], sound: string) => {
+    triggerHaptic.success();
+    const newAlarm: StudyAlarm = {
+      id: Date.now().toString(),
+      label: label.trim() || 'Study Session',
+      time,
+      days: days.length > 0 ? days : ['Daily'],
+      sound: sound || 'Zen Bell',
+      isActive: true,
+    };
+    setAlarms((prev) => [newAlarm, ...prev]);
+  }, []);
+
+  const deleteAlarm = useCallback((id: string) => {
+    triggerHaptic.light();
+    setAlarms((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  const testAlarm = useCallback((alarm: StudyAlarm) => {
+    triggerHaptic.warning();
+    playZenChime();
+    setActiveRingingAlarm(alarm);
+  }, []);
+
+  const dismissRingingAlarm = useCallback(() => {
+    triggerHaptic.medium();
+    setActiveRingingAlarm(null);
+  }, []);
+
   return (
     <FocusContext.Provider
       value={{
@@ -598,6 +725,22 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         nextBatchTime,
         todayStats,
         weeklyStats,
+        clockTab,
+        setClockTab,
+        stopwatchMs,
+        isStopwatchRunning,
+        stopwatchLaps,
+        startStopwatch,
+        pauseStopwatch,
+        resetStopwatch,
+        lapStopwatch,
+        alarms,
+        toggleAlarm,
+        addAlarm,
+        deleteAlarm,
+        testAlarm,
+        activeRingingAlarm,
+        dismissRingingAlarm,
       }}
     >
       {children}

@@ -68,3 +68,21 @@ export interface AchievementBadge {
   unlocked: boolean;
   progress: number; // 0 to 1
 }
+
+export type ClockSubTab = 'timer' | 'stopwatch' | 'alarm';
+
+export interface StudyAlarm {
+  id: string;
+  label: string;
+  time: string; // "06:30 AM"
+  days: string[];
+  sound: string;
+  isActive: boolean;
+}
+
+export interface StopwatchLap {
+  lapNumber: number;
+  lapTimeMs: number;
+  totalTimeMs: number;
+}
+
