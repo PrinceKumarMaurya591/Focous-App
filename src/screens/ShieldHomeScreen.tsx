@@ -8,9 +8,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
-import { useFocus } from '../context/FocusContext';
 import { Header } from '../components/Header';
+import { useFocus } from '../context/FocusContext';
 import { triggerHaptic } from '../services/haptics';
+import { openAndroidSettings } from '../services/permissions';
 
 export const ShieldHomeScreen: React.FC = () => {
   const {
@@ -133,6 +134,48 @@ export const ShieldHomeScreen: React.FC = () => {
             </Text>
             <Text style={styles.statLabel}>Deep Study Time</Text>
           </View>
+        </View>
+
+        {/* Call Protection & Native Shield Status Card */}
+        <View style={styles.callProtectionCard}>
+          <View style={styles.callProtectionTopRow}>
+            <View style={styles.callBadgeIcon}>
+              <Ionicons name="call" size={18} color={Colors.emerald} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.callProtectionTitle}>Phone Calls 100% Whitelisted</Text>
+              <Text style={styles.callProtectionSubtitle}>
+                Reels, Shorts, and social media notifications are blocked, but incoming phone calls will ALWAYS ring through.
+              </Text>
+            </View>
+            <View style={styles.whitelistedPill}>
+              <Text style={styles.whitelistedPillText}>ALLOWED</Text>
+            </View>
+          </View>
+
+          <View style={styles.nativePermissionsChecklist}>
+            <View style={styles.permCheckItem}>
+              <Ionicons name="shield-checkmark" size={14} color={Colors.emerald} />
+              <Text style={styles.permCheckText}>Instagram & YouTube Shorts Blocker configured</Text>
+            </View>
+            <View style={styles.permCheckItem}>
+              <Ionicons name="shield-checkmark" size={14} color={Colors.emerald} />
+              <Text style={styles.permCheckText}>Spam & Reel Notifications Silenced</Text>
+            </View>
+            <View style={styles.permCheckItem}>
+              <Ionicons name="shield-checkmark" size={14} color={Colors.emerald} />
+              <Text style={styles.permCheckText}>Native Overlay Privileges (SYSTEM_ALERT_WINDOW)</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.openSettingsBtn}
+            onPress={() => openAndroidSettings.appSettings()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="shield" size={16} color="#090B10" />
+            <Text style={styles.openSettingsBtnText}>Check Phone Blocker Permissions</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Live Regain Simulations Section */}
@@ -541,5 +584,80 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.textMuted,
     marginTop: 1,
+  },
+  callProtectionCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+  },
+  callProtectionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  callBadgeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.emeraldMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  callProtectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  callProtectionSubtitle: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  whitelistedPill: {
+    backgroundColor: Colors.emeraldMuted,
+    borderWidth: 1,
+    borderColor: Colors.emerald,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  whitelistedPillText: {
+    color: Colors.emerald,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  nativePermissionsChecklist: {
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+  },
+  permCheckItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  permCheckText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  openSettingsBtn: {
+    backgroundColor: Colors.emerald,
+    borderRadius: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  openSettingsBtnText: {
+    color: '#090B10',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
