@@ -24,6 +24,11 @@
     },
     "experiments": {
       "baseUrl": "/Focous-App"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c12dfa39-90c8-4b87-8912-6c7d9e9cc015"
+      }
     }
   }
 }

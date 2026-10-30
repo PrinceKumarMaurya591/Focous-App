@@ -27,6 +27,8 @@ export const StudyTimerScreen: React.FC = () => {
     startTimer,
     pauseTimer,
     resetTimer,
+    setCustomMinutes,
+    adjustTimerMinutes,
     isStrictMode,
     toggleStrictMode,
     activeSubject,
@@ -56,6 +58,10 @@ export const StudyTimerScreen: React.FC = () => {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
+
+  // Custom Minutes Modal states
+  const [isCustomMinModal, setIsCustomMinModal] = useState(false);
+  const [typedMins, setTypedMins] = useState('10');
 
   // New Alarm modal states
   const [isAddingAlarm, setIsAddingAlarm] = useState(false);
@@ -177,34 +183,64 @@ export const StudyTimerScreen: React.FC = () => {
         {/* ================= VIEW 1: TIMER ================= */}
         {clockTab === 'timer' && (
           <>
-            {/* Mode Switcher */}
-            <View style={styles.modeTabs}>
-              {(['pomodoro', 'deep_study', 'custom'] as TimerMode[]).map((mode) => {
-                const isActive = timerMode === mode;
-                const label =
-                  mode === 'pomodoro'
-                    ? '25m Pomodoro'
-                    : mode === 'deep_study'
-                    ? '50m Deep Flow'
-                    : '60m Custom';
-                return (
-                  <TouchableOpacity
-                    key={mode}
-                    style={[styles.modeTab, isActive && styles.modeTabActive]}
-                    onPress={() => setTimerMode(mode)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.modeTabText,
-                        isActive && styles.modeTabTextActive,
-                      ]}
+            {/* Quick Time Preset Selector */}
+            <View style={styles.quickPresetContainer}>
+              <View style={styles.quickPresetHeaderRow}>
+                <Text style={styles.quickPresetLabel}>Target Focus Time:</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setTypedMins(Math.round(totalDurationSeconds / 60).toString());
+                    setIsCustomMinModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.customLinkText}>Custom (e.g. 10m, 5m)</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickPresetsScroll}
+              >
+                {[5, 10, 15, 20, 25, 30, 45, 50, 60, 90].map((m) => {
+                  const currentMins = Math.round(totalDurationSeconds / 60);
+                  const isSelected = currentMins === m;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => {
+                        triggerHaptic.light();
+                        setCustomMinutes(m);
+                      }}
+                      activeOpacity={0.8}
                     >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.presetChipText,
+                          isSelected && styles.presetChipTextActive,
+                        ]}
+                      >
+                        {m}m
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={styles.customExactButton}
+                  onPress={() => {
+                    triggerHaptic.light();
+                    setTypedMins(Math.round(totalDurationSeconds / 60).toString());
+                    setIsCustomMinModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="options" size={13} color={Colors.emerald} />
+                  <Text style={styles.customExactText}>More...</Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
 
             {/* Active Subject Pill */}
@@ -264,6 +300,57 @@ export const StudyTimerScreen: React.FC = () => {
                 </View>
               </View>
             </View>
+
+            {/* Stepper Fine-Tuning Buttons (-5m, -1m, +1m, +5m) */}
+            {!isTimerRunning && (
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => adjustTimerMinutes(-5)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>-5m</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => adjustTimerMinutes(-1)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>-1m</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.currentDurationPill}
+                  onPress={() => {
+                    setTypedMins(Math.round(totalDurationSeconds / 60).toString());
+                    setIsCustomMinModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={13} color={Colors.emerald} />
+                  <Text style={styles.currentDurationPillText}>
+                    {Math.round(totalDurationSeconds / 60)} min
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => adjustTimerMinutes(1)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>+1m</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => adjustTimerMinutes(5)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.stepperBtnText}>+5m</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Main Controls: Play / Pause / Reset */}
             <View style={styles.timerButtonsRow}>
@@ -663,6 +750,68 @@ export const StudyTimerScreen: React.FC = () => {
               >
                 <Ionicons name="checkmark" size={20} color="#090B10" />
                 <Text style={styles.dismissAlarmBtnText}>Start Studying Now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Custom Duration Input Modal */}
+      {isCustomMinModal && (
+        <Modal
+          visible={isCustomMinModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsCustomMinModal(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Set Custom Study Minutes</Text>
+                <TouchableOpacity onPress={() => setIsCustomMinModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalInputLabel}>Enter exact minutes (e.g. 5, 10, 12, 35, 75)</Text>
+              <TextInput
+                style={[styles.modalInput, { fontSize: 28, textAlign: 'center', fontWeight: '800', color: Colors.emerald }]}
+                keyboardType="numeric"
+                value={typedMins}
+                onChangeText={setTypedMins}
+                placeholder="10"
+                placeholderTextColor={Colors.textMuted}
+                maxLength={3}
+                autoFocus
+              />
+
+              <View style={styles.quickTimePills}>
+                {[5, 10, 15, 20, 25, 30, 45, 60, 90].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    style={[styles.quickTimePill, typedMins === num.toString() && styles.quickTimePillActive]}
+                    onPress={() => setTypedMins(num.toString())}
+                  >
+                    <Text style={[styles.quickTimePillText, typedMins === num.toString() && styles.quickTimePillTextActive]}>
+                      {num}m
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveAlarmButton, { backgroundColor: Colors.emerald }]}
+                onPress={() => {
+                  const parsed = parseInt(typedMins, 10);
+                  if (!isNaN(parsed) && parsed > 0) {
+                    setCustomMinutes(parsed);
+                  }
+                  setIsCustomMinModal(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#090B10" />
+                <Text style={styles.saveAlarmButtonText}>Set Timer ({typedMins} min)</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1327,5 +1476,106 @@ const styles = StyleSheet.create({
     color: '#090B10',
     fontSize: 15,
     fontWeight: '800',
+  },
+  quickPresetContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    gap: 8,
+  },
+  quickPresetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  quickPresetLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  customLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.emerald,
+  },
+  quickPresetsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  presetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  presetChipActive: {
+    backgroundColor: Colors.emeraldMuted,
+    borderColor: Colors.emerald,
+  },
+  presetChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  presetChipTextActive: {
+    color: Colors.emerald,
+    fontWeight: '800',
+  },
+  customExactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+  },
+  customExactText: {
+    fontSize: 12,
+    color: Colors.emerald,
+    fontWeight: '700',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  stepperBtn: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  stepperBtnText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  currentDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.emeraldMuted,
+    borderWidth: 1,
+    borderColor: Colors.emeraldGlow,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  currentDurationPillText: {
+    color: Colors.emerald,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

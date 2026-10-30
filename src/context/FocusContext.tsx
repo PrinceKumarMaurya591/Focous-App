@@ -58,6 +58,8 @@ interface FocusContextType {
   startTimer: () => void;
   pauseTimer: () => void;
   resetTimer: (minutes?: number) => void;
+  setCustomMinutes: (minutes: number) => void;
+  adjustTimerMinutes: (deltaMinutes: number) => void;
   studyTasks: StudyTask[];
   addStudyTask: (title: string, subject: string, durationMinutes: number) => void;
   toggleStudyTask: (id: string) => void;
@@ -522,6 +524,27 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [timerMode]
   );
 
+  const setCustomMinutes = useCallback((mins: number) => {
+    const validMins = Math.max(1, Math.min(360, mins));
+    setTimerModeState('custom');
+    setIsTimerRunning(false);
+    const secs = validMins * 60;
+    setTotalDurationSeconds(secs);
+    setSecondsRemaining(secs);
+    triggerHaptic.light();
+  }, []);
+
+  const adjustTimerMinutes = useCallback((deltaMinutes: number) => {
+    if (isTimerRunning) return;
+    setSecondsRemaining((prev) => {
+      const currentMins = Math.max(1, Math.round(prev / 60));
+      const nextMins = Math.max(1, Math.min(360, currentMins + deltaMinutes));
+      setTotalDurationSeconds(nextMins * 60);
+      triggerHaptic.light();
+      return nextMins * 60;
+    });
+  }, [isTimerRunning]);
+
   const toggleStrictMode = useCallback(() => {
     setIsStrictMode((prev) => {
       const next = !prev;
@@ -705,6 +728,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         startTimer,
         pauseTimer,
         resetTimer,
+        setCustomMinutes,
+        adjustTimerMinutes,
         studyTasks,
         addStudyTask,
         toggleStudyTask,
