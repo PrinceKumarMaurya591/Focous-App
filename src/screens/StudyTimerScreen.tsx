@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 import { useFocus } from '../context/FocusContext';
 import { Header } from '../components/Header';
+import { TechChecklistView } from '../components/TechChecklistView';
 import { ClockSubTab, TimerMode, StudyAlarm } from '../types';
 import { triggerHaptic } from '../services/haptics';
 
@@ -106,14 +107,32 @@ export const StudyTimerScreen: React.FC = () => {
     }
   };
 
+  const completedTasksCount = studyTasks.filter((t) => t.completed).length;
+
   return (
     <View style={styles.container}>
       <Header
-        title={clockTab === 'timer' ? 'Study Focus Timer' : clockTab === 'stopwatch' ? 'Study Stopwatch' : 'Study Alarms'}
-        subtitle={clockTab === 'timer' ? 'Pomodoro & Deep Work' : clockTab === 'stopwatch' ? 'Track Continuous Study' : 'Wakeup & Schedule Alerts'}
+        title={
+          clockTab === 'timer'
+            ? 'Study Focus Timer'
+            : clockTab === 'checklist'
+            ? 'Coding & Prep Checklist'
+            : clockTab === 'stopwatch'
+            ? 'Study Stopwatch'
+            : 'Study Alarms'
+        }
+        subtitle={
+          clockTab === 'timer'
+            ? 'Pomodoro & Deep Work'
+            : clockTab === 'checklist'
+            ? 'SDE Tech Topics (Saved to Phone Storage)'
+            : clockTab === 'stopwatch'
+            ? 'Track Continuous Study'
+            : 'Wakeup & Schedule Alerts'
+        }
       />
 
-      {/* Clock Feature Sub-Tabs: Timer / Stopwatch / Alarm */}
+      {/* Clock Feature Sub-Tabs: Timer / Checklist / Stopwatch / Alarm */}
       <View style={styles.clockSubTabsRow}>
         <TouchableOpacity
           style={[styles.subTabButton, clockTab === 'timer' && styles.subTabButtonActive]}
@@ -125,13 +144,33 @@ export const StudyTimerScreen: React.FC = () => {
         >
           <Ionicons
             name="timer"
-            size={16}
+            size={15}
             color={clockTab === 'timer' ? Colors.emerald : Colors.textMuted}
           />
           <Text
             style={[styles.subTabButtonText, clockTab === 'timer' && styles.subTabButtonTextActive]}
           >
             Timer
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subTabButton, clockTab === 'checklist' && styles.subTabButtonActive]}
+          onPress={() => {
+            triggerHaptic.light();
+            setClockTab('checklist');
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="checkbox"
+            size={15}
+            color={clockTab === 'checklist' ? Colors.cyan : Colors.textMuted}
+          />
+          <Text
+            style={[styles.subTabButtonText, clockTab === 'checklist' && styles.subTabButtonTextActive]}
+          >
+            Checklist ({completedTasksCount}/{studyTasks.length})
           </Text>
         </TouchableOpacity>
 
@@ -145,7 +184,7 @@ export const StudyTimerScreen: React.FC = () => {
         >
           <Ionicons
             name="stopwatch"
-            size={16}
+            size={15}
             color={clockTab === 'stopwatch' ? Colors.cyan : Colors.textMuted}
           />
           <Text
@@ -165,7 +204,7 @@ export const StudyTimerScreen: React.FC = () => {
         >
           <Ionicons
             name="alarm"
-            size={16}
+            size={15}
             color={clockTab === 'alarm' ? Colors.amber : Colors.textMuted}
           />
           <Text
@@ -421,42 +460,31 @@ export const StudyTimerScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Study Tasks Checklist */}
+            {/* Study Tasks Checklist Summary */}
             <View style={styles.tasksSection}>
               <View style={styles.tasksHeaderRow}>
-                <Text style={styles.tasksTitle}>Study Checklist</Text>
+                <View>
+                  <Text style={styles.tasksTitle}>Study Checklist</Text>
+                  <Text style={styles.tasksSubtitle}>
+                    {completedTasksCount} of {studyTasks.length} Topics Mastered
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  onPress={() => setIsAddingTask(!isAddingTask)}
+                  style={styles.openTrackerLink}
+                  onPress={() => {
+                    triggerHaptic.light();
+                    setClockTab('checklist');
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.addTaskBtnText}>
-                    {isAddingTask ? 'Cancel' : '+ Add Task'}
+                  <Text style={styles.openTrackerLinkText}>
+                    Full Tracker ({studyTasks.length}) ➔
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              {isAddingTask && (
-                <View style={styles.newTaskInputRow}>
-                  <TextInput
-                    style={styles.newTaskInput}
-                    value={newTaskTitle}
-                    onChangeText={setNewTaskTitle}
-                    placeholder="e.g., Complete 10 physics questions"
-                    placeholderTextColor={Colors.textMuted}
-                    autoFocus
-                  />
-                  <TouchableOpacity
-                    style={styles.saveTaskBtn}
-                    onPress={handleAddNewTask}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.saveTaskBtnText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
               <View style={styles.tasksList}>
-                {studyTasks.map((task) => (
+                {studyTasks.slice(0, 4).map((task) => (
                   <TouchableOpacity
                     key={task.id}
                     style={[styles.taskItem, task.completed && styles.taskItemCompleted]}
@@ -473,6 +501,7 @@ export const StudyTimerScreen: React.FC = () => {
                         styles.taskText,
                         task.completed && styles.taskTextCompleted,
                       ]}
+                      numberOfLines={1}
                     >
                       {task.title}
                     </Text>
@@ -482,9 +511,26 @@ export const StudyTimerScreen: React.FC = () => {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <TouchableOpacity
+                style={styles.viewFullChecklistButton}
+                onPress={() => {
+                  triggerHaptic.light();
+                  setClockTab('checklist');
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="list" size={15} color={Colors.emerald} />
+                <Text style={styles.viewFullChecklistText}>
+                  Open Full Tech Roadmap (DSA, Java, Kafka, System Design) ➔
+                </Text>
+              </TouchableOpacity>
             </View>
           </>
         )}
+
+        {/* ================= VIEW: CODING & PREP CHECKLIST ================= */}
+        {clockTab === 'checklist' && <TechChecklistView />}
 
         {/* ================= VIEW 2: STOPWATCH ================= */}
         {clockTab === 'stopwatch' && (
@@ -829,11 +875,11 @@ const styles = StyleSheet.create({
   clockSubTabsRow: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: Colors.surfaceBorder,
-    gap: 8,
+    gap: 6,
   },
   subTabButton: {
     flex: 1,
@@ -841,8 +887,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    borderRadius: 12,
-    gap: 6,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    gap: 4,
     backgroundColor: Colors.surfaceLight,
   },
   subTabButtonActive: {
@@ -851,7 +898,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.surfaceBorderLight,
   },
   subTabButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: Colors.textMuted,
   },
@@ -1119,6 +1166,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
+  },
+  tasksSubtitle: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  openTrackerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.emeraldMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.emerald,
+  },
+  openTrackerLinkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.emerald,
+  },
+  viewFullChecklistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceLight,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.surfaceBorder,
+    marginTop: 4,
+    gap: 6,
+  },
+  viewFullChecklistText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.emerald,
   },
   clearText: {
     fontSize: 12,

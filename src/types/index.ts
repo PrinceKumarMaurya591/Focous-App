@@ -21,12 +21,29 @@ export interface BlockedApp {
 
 export type TimerMode = 'pomodoro' | 'deep_study' | 'custom';
 
+export type TechCategory =
+  | 'dsa'
+  | 'system_design'
+  | 'java'
+  | 'kafka'
+  | 'spring_boot'
+  | 'databases'
+  | 'cs_fundamentals'
+  | 'custom';
+
+export type PriorityLevel = 'must_know' | 'high' | 'medium';
+
 export interface StudyTask {
   id: string;
   title: string;
   subject: string;
+  category?: TechCategory;
+  priority?: PriorityLevel;
   durationMinutes: number;
   completed: boolean;
+  notes?: string;
+  isCustom?: boolean;
+  createdAt?: number;
 }
 
 export type SoundscapeId = 'none' | 'alpha_binaural' | 'rain_zen' | 'white_noise' | 'midnight_cafe' | 'forest_flow';
@@ -69,7 +86,7 @@ export interface AchievementBadge {
   progress: number; // 0 to 1
 }
 
-export type ClockSubTab = 'timer' | 'stopwatch' | 'alarm';
+export type ClockSubTab = 'timer' | 'checklist' | 'stopwatch' | 'alarm';
 
 export interface StudyAlarm {
   id: string;

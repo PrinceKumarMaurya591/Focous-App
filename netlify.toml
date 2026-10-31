@@ -1,0 +1,15 @@
+[build]
+  command = "npx expo export -p web"
+  publish = "dist"
+
+# Handles assets exported with GitHub Pages subpath (/Focous-App/...)
+[[redirects]]
+  from = "/Focous-App/*"
+  to = "/:splat"
+  status = 200
+
+# Single Page App routing fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

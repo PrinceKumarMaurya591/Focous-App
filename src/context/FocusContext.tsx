@@ -6,13 +6,23 @@ import {
   DailyStat,
   FrictionLevel,
   InterceptedNotification,
+  PriorityLevel,
   SoundscapeId,
   StopwatchLap,
   StudyAlarm,
   StudyTask,
   TabType,
+  TechCategory,
   TimerMode,
 } from '../types';
+import { DEFAULT_TECH_CHECKLIST } from '../data/codingChecklist';
+import {
+  loadStudyChecklist,
+  saveStudyChecklist,
+  resetStudyChecklistToDefaults,
+  loadActiveSubject,
+  saveActiveSubject,
+} from '../services/storage';
 import { playZenChime, setSoundscapeVolume, startSoundscape, stopSoundscape } from '../services/soundscape';
 import { triggerHaptic } from '../services/haptics';
 
@@ -61,10 +71,20 @@ interface FocusContextType {
   setCustomMinutes: (minutes: number) => void;
   adjustTimerMinutes: (deltaMinutes: number) => void;
   studyTasks: StudyTask[];
-  addStudyTask: (title: string, subject: string, durationMinutes: number) => void;
+  addStudyTask: (
+    title: string,
+    subject?: string,
+    durationMinutes?: number,
+    category?: TechCategory,
+    priority?: PriorityLevel,
+    notes?: string
+  ) => void;
   toggleStudyTask: (id: string) => void;
+  deleteStudyTask: (id: string) => void;
+  resetStudyTasksToDefault: () => Promise<void>;
+  focusOnTopic: (task: StudyTask) => void;
 
-  // Clock SubTab (Timer / Stopwatch / Alarm)
+  // Clock SubTab (Timer / Checklist / Stopwatch / Alarm)
   clockTab: ClockSubTab;
   setClockTab: (tab: ClockSubTab) => void;
 
@@ -317,12 +337,30 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [totalDurationSeconds, setTotalDurationSeconds] = useState<number>(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [isStrictMode, setIsStrictMode] = useState<boolean>(true);
-  const [activeSubject, setActiveSubject] = useState<string>('Organic Chemistry Chapter 4');
-  const [studyTasks, setStudyTasks] = useState<StudyTask[]>([
-    { id: '1', title: 'Review Reaction Mechanisms', subject: 'Chemistry', durationMinutes: 25, completed: true },
-    { id: '2', title: 'Solve 15 Practice Questions', subject: 'Chemistry', durationMinutes: 45, completed: false },
-    { id: '3', title: 'Active Recall Flashcards', subject: 'Biology', durationMinutes: 20, completed: false },
-  ]);
+  const [activeSubject, setActiveSubjectState] = useState<string>('DSA & LeetCode Practice');
+  const [studyTasks, setStudyTasks] = useState<StudyTask[]>(DEFAULT_TECH_CHECKLIST);
+
+  // Load persisted study checklist and active subject from phone local storage
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const saved = await loadStudyChecklist();
+        if (isMounted && saved && saved.length > 0) {
+          setStudyTasks(saved);
+        }
+        const savedSubject = await loadActiveSubject();
+        if (isMounted && savedSubject) {
+          setActiveSubjectState(savedSubject);
+        }
+      } catch (e) {
+        console.error('Failed to load study data from phone storage:', e);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Notifications
   const [notifications, setNotifications] = useState<InterceptedNotification[]>(DEFAULT_NOTIFICATIONS);
@@ -553,24 +591,77 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, []);
 
-  const addStudyTask = useCallback((title: string, subject: string, durationMinutes: number) => {
-    const newTask: StudyTask = {
-      id: Date.now().toString(),
-      title,
-      subject,
-      durationMinutes,
-      completed: false,
-    };
-    setStudyTasks((prev) => [newTask, ...prev]);
-    triggerHaptic.light();
+  const setActiveSubject = useCallback((subject: string) => {
+    setActiveSubjectState(subject);
+    saveActiveSubject(subject);
   }, []);
 
+  const addStudyTask = useCallback(
+    (
+      title: string,
+      subject: string = 'DSA',
+      durationMinutes: number = 30,
+      category?: TechCategory,
+      priority?: PriorityLevel,
+      notes?: string
+    ) => {
+      const newTask: StudyTask = {
+        id: 'task_' + Date.now().toString(),
+        title,
+        subject: subject || 'DSA',
+        category: category || 'dsa',
+        priority: priority || 'high',
+        durationMinutes: durationMinutes || 30,
+        completed: false,
+        notes: notes || '',
+        isCustom: true,
+        createdAt: Date.now(),
+      };
+      setStudyTasks((prev) => {
+        const next = [newTask, ...prev];
+        saveStudyChecklist(next);
+        return next;
+      });
+      triggerHaptic.light();
+    },
+    []
+  );
+
   const toggleStudyTask = useCallback((id: string) => {
-    setStudyTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
+    setStudyTasks((prev) => {
+      const next = prev.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      );
+      saveStudyChecklist(next);
+      return next;
+    });
     triggerHaptic.success();
   }, []);
+
+  const deleteStudyTask = useCallback((id: string) => {
+    setStudyTasks((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      saveStudyChecklist(next);
+      return next;
+    });
+    triggerHaptic.warning();
+  }, []);
+
+  const resetStudyTasksToDefault = useCallback(async () => {
+    const defaults = await resetStudyChecklistToDefaults();
+    setStudyTasks(defaults);
+    triggerHaptic.medium();
+  }, []);
+
+  const focusOnTopic = useCallback(
+    (task: StudyTask) => {
+      setActiveSubject(task.title);
+      setCustomMinutes(task.durationMinutes || 25);
+      setClockTab('timer');
+      triggerHaptic.medium();
+    },
+    [setActiveSubject, setCustomMinutes]
+  );
 
   // Emergency unlock
   const openUnlockModal = useCallback(() => {
@@ -733,6 +824,9 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         studyTasks,
         addStudyTask,
         toggleStudyTask,
+        deleteStudyTask,
+        resetStudyTasksToDefault,
+        focusOnTopic,
         isUnlockModalOpen,
         openUnlockModal,
         closeUnlockModal,
